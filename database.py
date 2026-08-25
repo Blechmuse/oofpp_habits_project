@@ -15,6 +15,7 @@ class Database:
         self.path = str(path)
         self.connection = sqlite3.connect(self.path)
         self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA foreign_keys = ON")
         self.create_tables()
 
     def create_tables(self) -> None:
@@ -59,8 +60,7 @@ class Database:
         self.connection.commit()
 
     def delete_habit(self, habit_id: int) -> None:
-        """Delete a habit and its check-ins."""
-        self.connection.execute("DELETE FROM checkins WHERE habit_id = ?", (habit_id,))
+        """Delete a habit and its associated check-ins."""
         self.connection.execute("DELETE FROM habits WHERE id = ?", (habit_id,))
         self.connection.commit()
 
@@ -106,11 +106,32 @@ class Database:
             ("Weekly review", "Reflect on the past week", Period.WEEKLY),
             ("Drink water", "Drink eight glasses of water", Period.DAILY),
         ]
-        habits = [self.insert_habit(Habit(None, name, description, period, now)) for name, description, period in defaults]
-        for week in range(4):
-            for habit in habits:
-                if habit.id is not None:
-                    completed_at = now - timedelta(days=week * 7)
+        habits = [
+            self.insert_habit(Habit(None, name, description, period, now))
+            for name, description, period in defaults
+        ]
+        daily_days = {
+            "Morning exercise": range(28),
+            "Read": range(14),
+            "Drink water": (0, 1, 2, 5, 6, 9, 10, 11, 12),
+        }
+        weekly_weeks = {
+            "Meal planning": range(4),
+            "Weekly review": (0, 1, 3),
+        }
+
+        for habit in habits:
+            if habit.id is None:
+                continue
+
+            if habit.period is Period.DAILY:
+                for day in daily_days[habit.name]:
+                    completed_at = now - timedelta(days=day)
+                    self.insert_checkin(CheckIn(None, habit.id, completed_at))
+
+            else:
+                for week in weekly_weeks[habit.name]:
+                    completed_at = now - timedelta(weeks=week)
                     self.insert_checkin(CheckIn(None, habit.id, completed_at))
 
     def close(self) -> None:

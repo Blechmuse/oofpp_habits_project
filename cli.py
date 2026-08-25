@@ -1,9 +1,10 @@
 """Menu-driven command-line interface."""
 
 from analytics import (
+    calculate_longest_streak,
     get_all_habits,
     get_habits_by_period,
-    get_longest_streak_habit,
+    get_longest_streak_all,
 )
 from database import Database
 from habit import Habit, Period
@@ -28,29 +29,34 @@ class CLI:
             "6": self.complete,
             "7": self.analytics_menu,
         }
-        while True:
-            print("\nHabit Tracker")
-            print("1. Show all habits\n2. Show habits by periodicity\n3. Create habit")
-            print("4. Edit habit\n5. Delete habit\n6. Complete habit\n7. Analytics\n8. Exit")
-            choice = input("Choose an option: ").strip()
-            if choice == "8":
-                return
-            action = actions.get(choice)
-            if action:
-                try:
-                    action()
-                except (ValueError, TypeError) as error:
-                    print(f"Error: {error}")
-            else:
-                print("Invalid option.")
+        try:
+            while True:
+                print("\nHabit Tracker")
+                print("1. Show all habits\n2. Show habits by periodicity\n3. Create habit")
+                print("4. Edit habit\n5. Delete habit\n6. Complete habit\n7. Analytics\n8. Exit")
+                choice = input("Choose an option: ").strip()
+                if choice == "8":
+                    return
+                action = actions.get(choice)
+                if action:
+                    try:
+                        action()
+                    except (ValueError, TypeError) as error:
+                        print(f"Error: {error}")
+                else:
+                    print("Invalid option.")
+        except KeyboardInterrupt:
+            print("\nOperation cancelled.")
 
     def show_all(self) -> None:
         """Print every habit."""
-        self._print_habits(self.manager.list_habits())
+        habits = self.database.load_habits()
+        self._print_habits(get_all_habits(habits))
 
     def show_by_period(self) -> None:
         """Print habits matching a selected period."""
-        self._print_habits(get_habits_by_period(self.database, self._read_period()))
+        habits = self.database.load_habits()
+        self._print_habits(get_habits_by_period(habits, self._read_period()))
 
     def create(self) -> None:
         """Prompt for and create a habit."""
@@ -80,28 +86,34 @@ class CLI:
         print("3. Longest streak of all habits\n4. Longest streak of a selected habit")
         choice = input("Choose an option: ").strip()
         if choice == "1":
-            self._print_habits(get_all_habits(self.database))
+            habits = self.database.load_habits()
+            self._print_habits(get_all_habits(habits))
         elif choice == "2":
-            self._print_habits(get_habits_by_period(self.database, self._read_period()))
+            habits = self.database.load_habits()
+            self._print_habits(get_habits_by_period(habits, self._read_period()))
         elif choice == "3":
-            habits = get_all_habits(self.database)
-            longest_habit = max(
+            habits = self.database.load_habits()
+            checkins_by_habit = {
+                habit.id: self.database.load_checkins(habit.id)
+                for habit in habits
+                if habit.id is not None
+            }
+            longest_habit, streak = get_longest_streak_all(
                 habits,
-                key=lambda habit: get_longest_streak_habit(self.database, habit.id or 0),
-                default=None,
+                checkins_by_habit,
             )
             if longest_habit is None:
                 print("Longest streak: 0 (no habits)")
             else:
-                streak = get_longest_streak_habit(self.database, longest_habit.id or 0)
                 print(f"Longest streak: {streak} ({longest_habit.name})")
         elif choice == "4":
             habit_id = int(input("Habit ID: "))
-            habit = self.manager.get_habit(habit_id)
+            habit = self.database.load_habit(habit_id)
             if habit is None:
                 print("Habit not found.")
             else:
-                streak = get_longest_streak_habit(self.database, habit_id)
+                checkins = self.database.load_checkins(habit_id)
+                streak = calculate_longest_streak(checkins, habit.period)
                 print(f"Longest streak: {streak} ({habit.name})")
         else:
             print("Invalid option.")

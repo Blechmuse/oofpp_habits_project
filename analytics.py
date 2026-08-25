@@ -3,47 +3,66 @@
 from datetime import date, timedelta
 from functools import reduce
 
-from database import Database
+from checkin import CheckIn
 from habit import Habit, Period
 
 
-def get_all_habits(database: Database) -> list[Habit]:
-    """Return all habits from SQLite."""
-    return database.load_habits()
+def get_all_habits(habits: list[Habit]) -> list[Habit]:
+    """Return all supplied habits."""
+    return list(habits)
 
 
-def get_habits_by_period(database: Database, period: Period) -> list[Habit]:
-    """Filter habits by period using a pure predicate."""
-    return list(filter(lambda habit: habit.period is period, get_all_habits(database)))
+def get_habits_by_period(habits: list[Habit], period: Period) -> list[Habit]:
+    """Return habits matching the selected periodicity."""
+    return list(filter(lambda habit: habit.period is period, habits))
 
 
-def get_longest_streak_habit(database: Database, habit_id: int) -> int:
-    """Return the longest consecutive completion streak for one habit."""
-    habit = database.load_habit(habit_id)
-    if habit is None:
-        return 0
-    checkins = database.load_checkins(habit_id)
-    keys = sorted({_period_key(checkin.completed_at.date(), habit.period) for checkin in checkins})
+def calculate_longest_streak(checkins: list[CheckIn], period: Period) -> int:
+    """Calculate the longest consecutive streak."""
+    keys = sorted(
+        {_period_key(checkin.completed_at.date(), period) for checkin in checkins}
+    )
     if not keys:
         return 0
 
-    def extend(current: tuple[int, int, object], key: object) -> tuple[int, int, object]:
+    def extend(
+        current: tuple[int, int, date],
+        key: date,
+    ) -> tuple[int, int, date]:
         current_length, longest_length, previous = current
-        next_length = current_length + 1 if key == _next_key(previous, habit.period) else 1
+        next_length = current_length + 1 if key == _next_key(previous, period) else 1
         return next_length, max(longest_length, next_length), key
 
     result = reduce(extend, keys[1:], (1, 1, keys[0]))
     return result[1]
 
 
-def get_longest_streak_all(database: Database) -> int:
-    """Return the largest streak among all habits."""
-    return max(map(lambda habit: get_longest_streak_habit(database, habit.id or 0), get_all_habits(database)), default=0)
+def get_longest_streak_all(
+    habits: list[Habit],
+    checkins_by_habit: dict[int, list[CheckIn]],
+) -> tuple[Habit | None, int]:
+    """Return the habit with the longest streak and its streak length."""
+    longest_habit = habits[0] if habits else None
+    longest_streak = 0
+
+    for habit in habits:
+        if habit.id is None:
+            streak = 0
+        else:
+            streak = calculate_longest_streak(
+                checkins_by_habit.get(habit.id, []),
+                habit.period,
+            )
+        if longest_habit is None or streak > longest_streak:
+            longest_habit = habit
+            longest_streak = streak
+
+    return longest_habit, longest_streak
 
 
 def _period_key(completed: date, period: Period) -> date:
     return completed if period is Period.DAILY else completed - timedelta(days=completed.weekday())
 
 
-def _next_key(previous: object, period: Period) -> object:
+def _next_key(previous: date, period: Period) -> date:
     return previous + timedelta(days=1 if period is Period.DAILY else 7)

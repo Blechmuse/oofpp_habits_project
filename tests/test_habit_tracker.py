@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from analytics import get_habits_by_period, get_longest_streak_habit
+from analytics import calculate_longest_streak, get_habits_by_period
 from checkin import CheckIn
 from database import Database
 from habit import Period
@@ -47,7 +47,9 @@ def test_longest_streak_calculation(tmp_path):
     start = datetime(2026, 1, 1)
     for offset in (0, 1, 2, 4):
         database.insert_checkin(CheckIn(None, habit.id, start + timedelta(days=offset)))
-    assert get_longest_streak_habit(database, habit.id) == 3
+    assert calculate_longest_streak(
+        database.load_checkins(habit.id), Period.DAILY
+    ) == 3
     database.close()
 
 
@@ -55,5 +57,8 @@ def test_filtering_by_periodicity(tmp_path):
     database, manager = make_manager(tmp_path)
     manager.create_habit("Daily", "", Period.DAILY)
     manager.create_habit("Weekly", "", Period.WEEKLY)
-    assert [habit.name for habit in get_habits_by_period(database, Period.WEEKLY)] == ["Weekly"]
+    assert [
+        habit.name
+        for habit in get_habits_by_period(database.load_habits(), Period.WEEKLY)
+    ] == ["Weekly"]
     database.close()

@@ -50,6 +50,3 @@ class HabitManager:
         """Return a habit by ID."""
         return self.database.load_habit(habit_id)
 
-    def get_habits_by_period(self, period: Period) -> list[Habit]:
-        """Return habits with the selected frequency."""
-        return [habit for habit in self.list_habits() if habit.period is period]
