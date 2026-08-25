@@ -98,7 +98,10 @@ class Database:
         """Seed five habits and four weeks of example completions once."""
         if self.connection.execute("SELECT 1 FROM habits LIMIT 1").fetchone():
             return
+
         now = datetime.now().replace(microsecond=0)
+        # fixture_start marks the beginning of the four-week test period.
+        fixture_start = now - timedelta(days=27)
         defaults = [
             ("Morning exercise", "Move for at least 20 minutes", Period.DAILY),
             ("Read", "Read a book", Period.DAILY),
@@ -107,31 +110,31 @@ class Database:
             ("Drink water", "Drink eight glasses of water", Period.DAILY),
         ]
         habits = [
-            self.insert_habit(Habit(None, name, description, period, now))
+            self.insert_habit(Habit(None, name, description, period, fixture_start))
             for name, description, period in defaults
         ]
         daily_days = {
             "Morning exercise": range(28),
-            "Read": range(14),
-            "Drink water": (0, 1, 2, 5, 6, 9, 10, 11, 12),
+            "Read": (*range(14), 27),
+            "Drink water": (0, 1, 2, 5, 6, 9, 10, 11, 12, 16, 17, 22, 24, 27),
         }
         weekly_weeks = {
             "Meal planning": range(4),
             "Weekly review": (0, 1, 3),
         }
 
+        # Intentional gaps provide interrupted streaks for analytics tests.
         for habit in habits:
             if habit.id is None:
                 continue
 
             if habit.period is Period.DAILY:
                 for day in daily_days[habit.name]:
-                    completed_at = now - timedelta(days=day)
+                    completed_at = fixture_start + timedelta(days=day)
                     self.insert_checkin(CheckIn(None, habit.id, completed_at))
-
             else:
                 for week in weekly_weeks[habit.name]:
-                    completed_at = now - timedelta(weeks=week)
+                    completed_at = fixture_start + timedelta(weeks=week)
                     self.insert_checkin(CheckIn(None, habit.id, completed_at))
 
     def close(self) -> None:

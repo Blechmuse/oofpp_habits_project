@@ -19,7 +19,7 @@ so data remains available between sessions.
 
 ## Technologies
 
-- Python 3.12
+- Python 3.14.7
 - SQLite
 - pytest
 - Visual Studio Code
@@ -37,7 +37,8 @@ so data remains available between sessions.
 
 ## Requirements
 
-Python 3.12 or another compatible modern Python version is required.
+Python 3.14.7 is required for the current development setup. Other Python
+3.14 releases should also be compatible.
 
 ## Installation
 
