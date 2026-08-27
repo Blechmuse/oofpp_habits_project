@@ -19,6 +19,8 @@ def get_habits_by_period(habits: list[Habit], period: Period) -> list[Habit]:
 
 def calculate_longest_streak(checkins: list[CheckIn], period: Period) -> int:
     """Calculate the longest consecutive streak."""
+    # A set removes duplicate check-ins; normalizing first makes weekly
+    # completions comparable even when they fall on different weekdays.
     keys = sorted(
         {_period_key(checkin.completed_at.date(), period) for checkin in checkins}
     )
@@ -33,6 +35,7 @@ def calculate_longest_streak(checkins: list[CheckIn], period: Period) -> int:
         next_length = current_length + 1 if key == _next_key(previous, period) else 1
         return next_length, max(longest_length, next_length), key
 
+    # The accumulator stores the current run, the best run, and its last key.
     result = reduce(extend, keys[1:], (1, 1, keys[0]))
     return result[1]
 

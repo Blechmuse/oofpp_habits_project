@@ -6,6 +6,7 @@ from analytics import (
     get_habits_by_period,
     get_longest_streak_all,
 )
+from checkin import CheckIn
 from database import Database
 from habit import Habit, Period
 from habitmanager import HabitManager
@@ -50,12 +51,12 @@ class CLI:
 
     def show_all(self) -> None:
         """Print every habit."""
-        habits = self.database.load_habits()
+        habits = self.manager.list_habits()
         self._print_habits(get_all_habits(habits))
 
     def show_by_period(self) -> None:
         """Print habits matching a selected period."""
-        habits = self.database.load_habits()
+        habits = self.manager.list_habits()
         self._print_habits(get_habits_by_period(habits, self._read_period()))
 
     def create(self) -> None:
@@ -86,18 +87,14 @@ class CLI:
         print("3. Longest streak of all habits\n4. Longest streak of a selected habit")
         choice = input("Choose an option: ").strip()
         if choice == "1":
-            habits = self.database.load_habits()
+            habits = self.manager.list_habits()
             self._print_habits(get_all_habits(habits))
         elif choice == "2":
-            habits = self.database.load_habits()
+            habits = self.manager.list_habits()
             self._print_habits(get_habits_by_period(habits, self._read_period()))
         elif choice == "3":
-            habits = self.database.load_habits()
-            checkins_by_habit = {
-                habit.id: self.database.load_checkins(habit.id)
-                for habit in habits
-                if habit.id is not None
-            }
+            habits = self.manager.list_habits()
+            checkins_by_habit = self._load_checkins_by_habit(habits)
             longest_habit, streak = get_longest_streak_all(
                 habits,
                 checkins_by_habit,
@@ -127,6 +124,17 @@ class CLI:
             if choice in periods:
                 return periods[choice]
             print("Invalid choice. Please select 1 or 2.")
+
+    def _load_checkins_by_habit(
+        self, habits: list[Habit]
+    ) -> dict[int, list[CheckIn]]:
+        """Load check-ins in the shape expected by the analytics functions."""
+        # Unsaved habits have no database ID and therefore cannot have check-ins.
+        return {
+            habit.id: self.database.load_checkins(habit.id)
+            for habit in habits
+            if habit.id is not None
+        }
 
     @staticmethod
     def _print_habits(habits: list[Habit]) -> None:

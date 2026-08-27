@@ -15,18 +15,24 @@ class HabitManager:
 
     def create_habit(self, name: str, description: str, period: Period) -> Habit:
         """Create and persist a habit."""
-        if not name.strip():
+        clean_name = name.strip()
+        if not clean_name:
             raise ValueError("Habit name cannot be empty")
-        return self.database.insert_habit(Habit(None, name.strip(), description.strip(), period, datetime.now()))
+        return self.database.insert_habit(
+            Habit(None, clean_name, description.strip(), period, datetime.now())
+        )
 
     def update_habit(self, habit_id: int, name: str, description: str, period: Period) -> Habit:
         """Update and return a habit."""
         habit = self.get_habit(habit_id)
         if habit is None:
             raise ValueError("Habit not found")
-        if not name.strip():
+        clean_name = name.strip()
+        if not clean_name:
             raise ValueError("Habit name cannot be empty")
-        habit.name, habit.description, habit.period = name.strip(), description.strip(), period
+        habit.name = clean_name
+        habit.description = description.strip()
+        habit.period = period
         self.database.update_habit(habit)
         return habit
 
